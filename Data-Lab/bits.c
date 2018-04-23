@@ -178,8 +178,18 @@ int logicalShift(int x, int n) {
  *   Rating: 4
  */
 int bitCount(int x) {
-    int tmp = 0x7777
-    return 2;
+    int tmp = 0x01010101 ;
+    int res = x & tmp ;
+    res += ((x >> 1) & tmp) ;
+    res += ((x >> 2) & tmp) ;
+    res += ((x >> 3) & tmp) ;
+    res += ((x >> 4) & tmp) ;
+    res += ((x >> 5) & tmp) ;
+    res += ((x >> 6) & tmp) ;
+    res += ((x >> 7) & tmp) ;
+    int bits = (res & 0xff) + ((res >> 8) & 0xff) + ((res >> 16) & 0xff) + ((res >> 24) & 0xff) ;
+    // 注意要加括号，位运算的优先级是比➕高的!!!
+    return bits ;
 }
 /*
  * bang - Compute !x without using !
@@ -189,7 +199,19 @@ int bitCount(int x) {
  *   Rating: 4
  */
 int bang(int x) {
-  return 2;
+    /* 法一：
+     * 把所有位都移到最后一位*/
+    x |= ( x >> 16 ) ;
+    x |= ( x >> 8 ) ;
+    x |= ( x >> 4 ) ;
+    x |= ( x >> 2 ) ;
+    x |= ( x >> 1 ) ;
+    return ( x & 0x1 ) ^ 0x1 ;
+    /*
+     * 法二：
+     * 利用 0和 -0的符号相同，其他的数字和自己的相反数符号位不同
+    return ((~(~x+1)^x) >> 31) & 0x1 ;
+    */
 }
 /*
  * tmin - return minimum two's complement integer
@@ -198,7 +220,8 @@ int bang(int x) {
  *   Rating: 1
  */
 int tmin(void) {
-  return 2;
+    // 最小的补码。。
+    return 0x80000000 ;
 }
 /*
  * fitsBits - return 1 if x can be represented as an
@@ -210,7 +233,13 @@ int tmin(void) {
  *   Rating: 2
  */
 int fitsBits(int x, int n) {
-  return 2;
+    /*
+     * 正数的前面全是0，负数的前面全是1
+     * 思路：检查前32-n位是否相等
+     * 利用算数右移的性质
+     */
+    int shift = ~n + 33 ;
+    return !(x ^ (x << shift >> shift)) ;
 }
 /*
  * divpwr2 - Compute x/(2^n), for 0 <= n <= 30
@@ -221,7 +250,15 @@ int fitsBits(int x, int n) {
  *   Rating: 2
  */
 int divpwr2(int x, int n) {
-    return 2;
+    /*
+     * 加一的条件：
+     * 1. x是负数
+     * 2. 被右移的n位里面有1（就是有被省去）
+     */
+    int res = x >> n ;
+    int tmp = ~((~0)<<n) & x ;
+    res += ((( x >> 31) & 0x1) & (!(!tmp))) ;
+    return res;
 }
 /*
  * negate - return -x
@@ -231,7 +268,7 @@ int divpwr2(int x, int n) {
  *   Rating: 2
  */
 int negate(int x) {
-  return 2;
+  return ~x + 1 ;
 }
 /*
  * isPositive - return 1 if x > 0, return 0 otherwise
@@ -241,7 +278,10 @@ int negate(int x) {
  *   Rating: 3
  */
 int isPositive(int x) {
-  return 2;
+    /*
+     * 检查符号位位0，并且不等于0
+     */
+    return !((x >> 31)& 0x1) & !(!x) ;
 }
 /*
  * isLessOrEqual - if x <= y  then return 1, else return 0
@@ -251,7 +291,15 @@ int isPositive(int x) {
  *   Rating: 3
  */
 int isLessOrEqual(int x, int y) {
-  return 2;
+    /*
+     * 返回1的条件
+     * 1. x < 0 且 y > 0
+     * 2. x, y 符号相同时，z = x - y，其中z 满足 z < 0 或 z == 0
+     * */
+    int fx = ( x >> 31 ) & 0x1 ;
+    int fy = ( y >> 31 ) & 0x1 ;
+    int z = x + ~y + 1 ;
+    return (( fx ^ fy ) & fx ) | ( (!(fx^fy)) & ((( z >> 31 ) & 0x1)|(!z)) ) ;
 }
 /*
  * ilog2 - return floor(log base 2 of x), where x > 0
@@ -261,7 +309,13 @@ int isLessOrEqual(int x, int y) {
  *   Rating: 4
  */
 int ilog2(int x) {
-  return 2;
+    int count = 0 ;
+    count = count + ( !!(x>>(count+16)) << 4 ) ;
+    count = count + ( !!(x>>(count+ 8)) << 3 ) ;
+    count = count + ( !!(x>>(count+ 4)) << 2 ) ;
+    count = count + ( !!(x>>(count+ 2)) << 1 ) ;
+    count = count + ( !!(x>>(count+ 1)) << 0 ) ;
+    return count ;
 }
 /*
  * float_neg - Return bit-level equivalent of expression -f for
@@ -275,7 +329,9 @@ int ilog2(int x) {
  *   Rating: 2
  */
 unsigned float_neg(unsigned uf) {
- return 2;
+    if ( ( uf & 0x7fffffff ) > 0x7f800000 ) // NaN
+        return uf ;
+    return uf ^ 0x80000000 ;
 }
 /*
  * float_i2f - Return bit-level equivalent of expression (float) x
@@ -287,7 +343,24 @@ unsigned float_neg(unsigned uf) {
  *   Rating: 4
  */
 unsigned float_i2f(int x) {
-  return 2;
+    if ( x == 0 ) return 0 ;
+    if ( x == 0x80000000) return 3472883712u ;
+    int sign = !!(x&0x80000000) ;               // 符号位
+    if ( sign ) x = ~x + 1 ;                    // 取绝对值
+    int first = 30 ;
+    while ( !(x >> first) )                    //  找出第一位1的位置
+        first-- ;
+    int exp = first + 127 ;
+    x <<= ( 31 - first ) ;                     // 消除第一位的1 前面的数，包括符号位
+    int fac = 0x7fffff & ( x >> 8 ) ;          // 取后23位做为 fac, x的后8被舍去(int型不可能是非格式化，所有虽然是舍去9位，但是第一位是1，所以x是后移8位)
+    x = x & 0xff ;                             // 取x的后8位，判断是不是应该进位
+    if ( x > 128 || ( x == 128 && (fac & 0x1 )))
+        fac++ ;
+    if ( fac >> 23 ) {
+        fac &= 0x7fffff ;                      // 超出23位，只取23位，阶码加一
+        exp++ ;
+    }
+    return (sign << 31) | ( exp << 23 ) | fac ;
 }
 /*
  * float_twice - Return bit-level equivalent of expression 2*f for
@@ -301,5 +374,11 @@ unsigned float_i2f(int x) {
  *   Rating: 4
  */
 unsigned float_twice(unsigned uf) {
-  return 2;
+    if ( (uf & 0x7f800000) == 0 ) {
+        uf = (( uf & 0x007fffff )<< 1) | (0x80000000 & uf) ;  // 非格式化的数
+    }
+    else if ( ( uf & 0x7f800000 ) != 0x7f800000 ) {           // 格式化的数，且不是特殊值
+        uf += 0x00800000 ;
+    }
+    return uf ;
 }
