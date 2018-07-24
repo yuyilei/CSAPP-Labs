@@ -167,28 +167,156 @@ void phase_3(){
 
 ```
 000000000040100c <phase_4>:
-  40100c:   48 83 ec 18             sub    $0x18,%rsp                           
-  401010:   48 8d 4c 24 0c          lea    0xc(%rsp),%rcx
-  401015:   48 8d 54 24 08          lea    0x8(%rsp),%rdx
-  40101a:   be cf 25 40 00          mov    $0x4025cf,%esi
-  40101f:   b8 00 00 00 00          mov    $0x0,%eax
-  401024:   e8 c7 fb ff ff          callq  400bf0 <__isoc99_sscanf@plt>
-  401029:   83 f8 02                cmp    $0x2,%eax
-  40102c:   75 07                   jne    401035 <phase_4+0x29>
-  40102e:   83 7c 24 08 0e          cmpl   $0xe,0x8(%rsp)
-  401033:   76 05                   jbe    40103a <phase_4+0x2e>
+  40100c:   48 83 ec 18             sub    $0x18,%rsp                        // 分配24b栈帧                                401010:   48 8d 4c 24 0c          lea    0xc(%rsp),%rcx                    // %rcx = %rsp + 12 
+  401015:   48 8d 54 24 08          lea    0x8(%rsp),%rdx                    // %rdx = %rsp + 8
+  40101a:   be cf 25 40 00          mov    $0x4025cf,%esi                    // %esi = 0x4025cf  
+  40101f:   b8 00 00 00 00          mov    $0x0,%eax                         // %eax = 0 
+  401024:   e8 c7 fb ff ff          callq  400bf0 <__isoc99_sscanf@plt>      // scanf函数，结果存入 %eax
+  401029:   83 f8 02                cmp    $0x2,%eax                         // 比较%eax 与 2，不相等就炸弹爆炸，可知，读入2个数
+  40102c:   75 07                   jne    401035 <phase_4+0x29>        
+  40102e:   83 7c 24 08 0e          cmpl   $0xe,0x8(%rsp)                    // 比较 14 和 %rsp + 8中的数
+  401033:   76 05                   jbe    40103a <phase_4+0x2e>             // 要求%rsp + 8 小于等于 14，否则就爆炸
   401035:   e8 00 04 00 00          callq  40143a <explode_bomb>
-  40103a:   ba 0e 00 00 00          mov    $0xe,%edx
-  40103f:   be 00 00 00 00          mov    $0x0,%esi
-  401044:   8b 7c 24 08             mov    0x8(%rsp),%edi
-  401048:   e8 81 ff ff ff          callq  400fce <func4>
-  40104d:   85 c0                   test   %eax,%eax
-  40104f:   75 07                   jne    401058 <phase_4+0x4c>
-  401051:   83 7c 24 0c 00          cmpl   $0x0,0xc(%rsp)
-  401056:   74 05                   je     40105d <phase_4+0x51>
+  40103a:   ba 0e 00 00 00          mov    $0xe,%edx                         // %edx = 14
+  40103f:   be 00 00 00 00          mov    $0x0,%esi                         // %esi = 0 
+  401044:   8b 7c 24 08             mov    0x8(%rsp),%edi                    // %edi = %rsp + 8
+  401048:   e8 81 ff ff ff          callq  400fce <func4>                    // func4(%rdi,%rsi,%rdx)
+  40104d:   85 c0                   test   %eax,%eax                         // 检查%eax             
+  40104f:   75 07                   jne    401058 <phase_4+0x4c>             // 不等于0就跳转到 401058, 发生爆炸
+  401051:   83 7c 24 0c 00          cmpl   $0x0,0xc(%rsp)                    // 比较 0 和 %rsp + 12
+  401056:   74 05                   je     40105d <phase_4+0x51>             // 相等就跳转到40105, 否则爆炸  
+
   401058:   e8 dd 03 00 00          callq  40143a <explode_bomb>
-  40105d:   48 83 c4 18             add    $0x18,%rsp
+  40105d:   48 83 c4 18             add    $0x18,%rsp                       
   401061:   c3                      retq
+
+
+
+0000000000400fce <func4>:
+  400fce:   48 83 ec 08             sub    $0x8,%rsp                         // 分配8b的栈帧
+  400fd2:   89 d0                   mov    %edx,%eax                         // %eax = %edx
+  400fd4:   29 f0                   sub    %esi,%eax                         // %eax = %eax - %esi
+  400fd6:   89 c1                   mov    %eax,%ecx                         // %ecx = %eax 
+  400fd8:   c1 e9 1f                shr    $0x1f,%ecx                        // %ecx = %ecx >> 31
+  400fdb:   01 c8                   add    %ecx,%eax                         // %eax = %eax + %ecx                
+  400fdd:   d1 f8                   sar    %eax                              // %eax = %eax >> 1
+  400fdf:   8d 0c 30                lea    (%rax,%rsi,1),%ecx                // %ecx = %rax + %rsi*1
+  400fe2:   39 f9                   cmp    %edi,%ecx                         // 比较 %ecx与%edi 
+  400fe4:   7e 0c                   jle    400ff2 <func4+0x24>               // %ecx <= %edi 就跳转 
+  400fe6:   8d 51 ff                lea    -0x1(%rcx),%edx                   // %edx = %rcx - 1 
+  400fe9:   e8 e0 ff ff ff          callq  400fce <func4>                    // func4(%rdi,%rsi,%rdx)
+  400fee:   01 c0                   add    %eax,%eax                         // %eax += %eax 
+  400ff0:   eb 15                   jmp    401007 <func4+0x39>               // 跳转到 401007
+
+  400ff2:   b8 00 00 00 00          mov    $0x0,%eax                         // %eax = 0                                  400ff7:   39 f9                   cmp    %edi,%ecx                         // 比较 %ecx, %edi
+  400ff9:   7d 0c                   jge    401007 <func4+0x39>               // %ecx >= %edi 跳转到 401007
+  400ffb:   8d 71 01                lea    0x1(%rcx),%esi                    // %esi = %rcx + 1
+  400ffe:   e8 cb ff ff ff          callq  400fce <func4>                    // func4(%rdi,%rsi,%rdx)
+  401003:   8d 44 00 01             lea    0x1(%rax,%rax,1),%eax             // %eax = %rax + %rax + 1 
+
+  401007:   48 83 c4 08             add    $0x8,%rsp                         
+  40100b:   c3                      retq
+
 ```
 
+`phase_4`前面部分和`phase_3`一样都是读入两个整数，两个整数分别在 `%rsp + 8` 和 `%rsp + 12` 然后调用 `func4`，`func4`中有递归调用，要求递归结束之后 `func4`返回的的值为0。
 
+写出对应的伪代码：
+
+```c
+void phase_4(){
+    scanf("%d %d",&a,&b);
+    if ( a > 14 ) 
+        explode_bomb();
+    int t = func4(a,0,14); 
+    if ( t != 0 )
+        explode_bomb();
+    if ( b != 0 ) 
+        explode();
+}
+int func4(int x, int y, int z){
+    // x in %rdi,y in %rsi,z in %rdx,t in %rax,k in %ecx
+    int t = z - y;
+    int k = z >> 31;
+    t = t + k; 
+    t = t >> 1;
+    k = y + t;
+    if ( k > x ){
+        z = k - 1;
+        t = func4(x,y,z);
+        t = 2*t;
+        return t;
+    }
+    else{
+        t = 0;
+        if ( k < x ){
+            y = k + 1;
+            t = func(x,y,z);
+            t = 2*t+1;
+            return t; 
+        }
+        else {
+            return t;
+        }
+    }
+}
+```
+
+然后发现很简单～  显然 b = 0，根据 `func4` 需要返回 0 的条件，得知 a = 7 
+
+所以答案就是 `7 0` 
+
+
+## phase_5 
+
+第五个函数：
+
+```
+0000000000401062 <phase_5>:           
+  401062:   53                      push   %rbx                           // save %rbx            
+  401063:   48 83 ec 20             sub    $0x20,%rsp                     // 分配 32b 的栈帧
+  401067:   48 89 fb                mov    %rdi,%rbx                      // %rbx = %rdi，%rdi中应该是字符串的起始地址 
+  40106a:   64 48 8b 04 25 28 00    mov    %fs:0x28,%rax
+  401071:   00 00 
+  401073:   48 89 44 24 18          mov    %rax,0x18(%rsp)                // %rsp + 24 = %rax 
+  401078:   31 c0                   xor    %eax,%eax                      // %eax = %eax | %eax
+  40107a:   e8 9c 02 00 00          callq  40131b <string_length>         // %eax = string_length(%rdi) 计算字符串长度
+  40107f:   83 f8 06                cmp    $0x6,%eax                      // 字符串长度 不等于 6就爆炸
+  401082:   74 4e                   je     4010d2 <phase_5+0x70>          // 跳转到 4010d2 
+  401084:   e8 b1 03 00 00          callq  40143a <explode_bomb>
+  401089:   eb 47                   jmp    4010d2 <phase_5+0x70>
+  
+  40108b:   0f b6 0c 03             movzbl (%rbx,%rax,1),%ecx             // %ecx = %rbx + %rax 从这里开始 依次获取每个字符
+  40108f:   88 0c 24                mov    %cl,(%rsp)                     // (%rsp) = %cl  
+  401092:   48 8b 14 24             mov    (%rsp),%rdx                    // %rdx = (%rsp) 
+  401096:   83 e2 0f                and    $0xf,%edx                      // %edx = %edx & 11111111 获取每个字符的低8位
+  401099:   0f b6 92 b0 24 40 00    movzbl 0x4024b0(%rdx),%edx            // %edx = 0x4024b0 + %rdx  
+  4010a0:   88 54 04 10             mov    %dl,0x10(%rsp,%rax,1)          // %rsp + %rax + 16 = %dl (%rdx 的 低8位)
+  4010a4:   48 83 c0 01             add    $0x1,%rax                      // %rax = %rax + 1
+  4010a8:   48 83 f8 06             cmp    $0x6,%rax                      // 与 6 比较，说明要遍历字符串，循环6次
+  4010ac:   75 dd                   jne    40108b <phase_5+0x29>
+
+  4010ae:   c6 44 24 16 00          movb   $0x0,0x16(%rsp)                // %rsp + 16 = 0
+  4010b3:   be 5e 24 40 00          mov    $0x40245e,%esi                 // %esi = $0x40245e  
+  4010b8:   48 8d 7c 24 10          lea    0x10(%rsp),%rdi                // %rdi = %rsp + 16 
+  4010bd:   e8 76 02 00 00          callq  401338 <strings_not_equal>     // %eax = strings_not_equal(%rdi,%rsi) 
+  4010c2:   85 c0                   test   %eax,%eax                      
+  4010c4:   74 13                   je     4010d9 <phase_5+0x77>          // 两个字符串不相等，爆炸
+  4010c6:   e8 6f 03 00 00          callq  40143a <explode_bomb>
+  4010cb:   0f 1f 44 00 00          nopl   0x0(%rax,%rax,1)
+  4010d0:   eb 07                   jmp    4010d9 <phase_5+0x77>
+  
+  4010d2:   b8 00 00 00 00          mov    $0x0,%eax                      // %eax = 0 
+  4010d7:   eb b2                   jmp    40108b <phase_5+0x29>          // 跳转到 40108b
+  
+  4010d9:   48 8b 44 24 18          mov    0x18(%rsp),%rax                // %rax = %rsp + 24 
+  4010de:   64 48 33 04 25 28 00    xor    %fs:0x28,%rax                  
+  4010e5:   00 00 
+  4010e7:   74 05                   je     4010ee <phase_5+0x8c>
+  4010e9:   e8 42 fa ff ff          callq  400b30 <__stack_chk_fail@plt>
+  4010ee:   48 83 c4 20             add    $0x20,%rsp                     
+  4010f2:   5b                      pop    %rbx
+  4010f3:   c3                      retq
+
+
+```
