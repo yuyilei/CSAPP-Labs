@@ -328,7 +328,7 @@ int func4(int x, int y, int z){
 
  伪代码如下：
 
- ```
+ ```c 
  void phase_5(){
      char a[7];
      char *b = "maduiersnfotvbylSo you think you can stop the bomb with ctrl-c, do you?";
@@ -466,6 +466,7 @@ int func4(int x, int y, int z){
 
 ```
 
+把它写成伪代码，如下: 
 
 ```c
 void phase_6(){
@@ -547,8 +548,13 @@ psrt_5:
     } 
 }
 ```
+根据功能，分为5个部分。
 
-看 `part three`, 查看 `0x6032d0` :
+第一部分，读入6个整数，依次检查每个数是否大于6，且这6个数互相不相等，注意这里有个双重循环。
+
+第二部分，将这个数组中的数字替换成 7-这个数。
+
+第三部分, 查看 `0x6032d0` :
 
 ![](https://upload-images.jianshu.io/upload_images/4440914-3713c00ddf09dea3.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/700)
 
@@ -564,12 +570,13 @@ struct node{
 }
 ```
 
- 所以`401176`行得意思是： `struct *p = p->next;` 指向当前节点的下一个节点，这段代码的意思是根据`nums`数组中的值，将`node`节点的地址存到`%rsp+32`的开始一段内存中，例如 nums 中是 1,2,3,4,5,6 则`%rsp+32`的开始一段内存分别存入 `&node1`， `&node2`，`&node3`，`&node4`，`&node5`，`&node6`。
+所以`401176`行得意思是： `struct *p = p->next;` 指向当前节点的下一个节点，这段代码的意思是根据`nums`数组中的值，将`node`节点的地址存到`%rsp+32`的开始一段内存中，例如 nums 中是 1,2,3,4,5,6 则`%rsp+32`的开始一段内存分别存入 `&node1`， `&node2`，`&node3`，`&node4`，`&node5`，`&node6`。
 
- 第四部分是根据之前存入`address`的地址，重新连接链表。
+第四部分是根据之前存入`address`的地址，重新连接链表。
 
- 第五部分是遍历链表，保证链表的node的value是降序的：`node3(924)->node4(691)->node5(477)->node6(443)->node1(332)->node2(168)`，二链表是根据输入的6个数字重新连接的，所以，答案是`4 3 2 1 6 5`。
+第五部分是遍历链表，保证链表的node的value是降序的：`node3(924)->node4(691)->node5(477)->node6(443)->node1(332)->node2(168)`，二链表是根据输入的6个数字重新连接的，所以，答案是`4 3 2 1 6 5`。
 
+然后6个炸弹就全部拆完了！ 
 
 ## secret_phase
 
