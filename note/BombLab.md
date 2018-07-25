@@ -276,7 +276,7 @@ int func4(int x, int y, int z){
   401062:   53                      push   %rbx                           // save %rbx            
   401063:   48 83 ec 20             sub    $0x20,%rsp                     // 分配 32b 的栈帧
   401067:   48 89 fb                mov    %rdi,%rbx                      // %rbx = %rdi，%rdi中应该是字符串的起始地址 
-  40106a:   64 48 8b 04 25 28 00    mov    %fs:0x28,%rax
+  40106a:   64 48 8b 04 25 28 00    mov    %fs:0x28,%rax                  // %fs:0x28 从内存内存中读入一个值，放在%rax 
   401071:   00 00 
   401073:   48 89 44 24 18          mov    %rax,0x18(%rsp)                // %rsp + 24 = %rax 
   401078:   31 c0                   xor    %eax,%eax                      // %eax = %eax | %eax
@@ -310,13 +310,266 @@ int func4(int x, int y, int z){
   4010d7:   eb b2                   jmp    40108b <phase_5+0x29>          // 跳转到 40108b
   
   4010d9:   48 8b 44 24 18          mov    0x18(%rsp),%rax                // %rax = %rsp + 24 
-  4010de:   64 48 33 04 25 28 00    xor    %fs:0x28,%rax                  
-  4010e5:   00 00 
-  4010e7:   74 05                   je     4010ee <phase_5+0x8c>
-  4010e9:   e8 42 fa ff ff          callq  400b30 <__stack_chk_fail@plt>
+  4010de:   64 48 33 04 25 28 00    xor    %fs:0x28,%rax                  // 再次从 %fs:0x28 内存内存中读入一个值，与%rax亦或  4010e5:   00 00 
+  4010e7:   74 05                   je     4010ee <phase_5+0x8c>          // 如果不相等，就说明栈被破坏，缓冲区溢出，是不安全的
+  4010e9:   e8 42 fa ff ff          callq  400b30 <__stack_chk_fail@plt>  
   4010ee:   48 83 c4 20             add    $0x20,%rsp                     
   4010f2:   5b                      pop    %rbx
   4010f3:   c3                      retq
 
 
 ```
+
+`phase_5`函数读入一个长度位6的字符串，它有一个 `栈破坏检验` 检查输入的字符串有没有造成缓冲区溢出，`40106a`和`4010de-4010e9`
+
+`40108b-4010ac`是关键部分，依次遍历每个字符，取它的低8位作为索引，加上`0x4024b0`，查看`0x4024b0`，发现它是一个字符串：`maduiersnfotvbylSo you think you can stop the bomb with ctrl-c, do you?`，在这个地址的基础上加上偏移量，存入`%rsp+16`开始的寄存器中。
+
+ 在`4010ae-4010d0`将 `rsp+16`开始的字符串与`0x40245e`地址的字符串比较，不相等就爆炸。查看`0x40245e`处的字符串是 `flyers`。
+
+ 伪代码如下：
+
+ ```
+ void phase_5(){
+     char a[7];
+     char *b = "maduiersnfotvbylSo you think you can stop the bomb with ctrl-c, do you?";
+     char *c = "flyers";
+     char *d;
+     gets(a);
+     if ( strlen(a) != 6 ) 
+        explode_bomb();
+     for ( int i = 0 ; i < 6 ; i++ ){
+         short t = (short)(a[i] * 0xf);
+         *(d+i) = *(b+t);
+     }
+     if ( strcmp(c,d) != 0 )
+        explode_bomb();
+ }
+ ```
+
+ 所以，只要输入的字符串中的每个字符的低8位满足一定条件就可以拆除炸弹，答案不唯一。
+
+ 我的答案是 : `)/.%&'` 
+
+ ## phase_6 
+ 
+`phase_6` 分为几个部分: 
+
+```
+-------------------------part one------------------------------
+  4010fc:   48 83 ec 50             sub    $0x50,%rsp                 // %rsp = %rsp - 80
+  401100:   49 89 e5                mov    %rsp,%r13                  // %r13 = %rsp
+  401103:   48 89 e6                mov    %rsp,%rsi                  // %rsi = %rsp 
+  401106:   e8 51 03 00 00          callq  40145c <read_six_numbers>  // %eax = read_six_numbers(%rdi,%rsi)
+  40110b:   49 89 e6                mov    %rsp,%r14                  // %r14 = %rsp 
+  40110e:   41 bc 00 00 00 00       mov    $0x0,%r12d                 // %r12d = 0 
+  
+  401114:   4c 89 ed                mov    %r13,%rbp                  // %rpb = %r13 
+  401117:   41 8b 45 00             mov    0x0(%r13),%eax             // %eax = (%r13) 
+  40111b:   83 e8 01                sub    $0x1,%eax                  // %eax = %eax - 1 
+  40111e:   83 f8 05                cmp    $0x5,%eax                  // 比较 %eax 与 5 
+  401121:   76 05                   jbe    401128 <phase_6+0x34>      // 跳转到 401128
+  401123:   e8 12 03 00 00          callq  40143a <explode_bomb>      // 如果大于6个数，炸弹爆炸 
+  
+  401128:   41 83 c4 01             add    $0x1,%r12d                 // %r12d = %r12d + 1 
+  40112c:   41 83 fc 06             cmp    $0x6,%r12d                 // 与 6 比较，说明 %12d是个计数器
+  401130:   74 21                   je     401153 <phase_6+0x5f>      // 累加到6就跳转到401153 
+  401132:   44 89 e3                mov    %r12d,%ebx                 // %ebx  = %r12d 
+  
+  401135:   48 63 c3                movslq %ebx,%rax                  // %rax = %ebx
+  401138:   8b 04 84                mov    (%rsp,%rax,4),%eax         // %eax = %rsp + 4*%rax 
+  40113b:   39 45 00                cmp    %eax,0x0(%rbp)             // 比较 %eax 与 %rbp 
+  40113e:   75 05                   jne    401145 <phase_6+0x51>      // 跳转到401145
+  401140:   e8 f5 02 00 00          callq  40143a <explode_bomb>      // 相等爆炸
+  
+  401145:   83 c3 01                add    $0x1,%ebx                  // %rbx = %rbx + 1 
+  401148:   83 fb 05                cmp    $0x5,%ebx                  // %rdx 和 5 比较，说明 %rdx也是个计数器
+  40114b:   7e e8                   jle    401135 <phase_6+0x41>      // 小于等于就跳转
+  40114d:   49 83 c5 04             add    $0x4,%r13                  // %r13 = %r13 + 4 
+  401151:   eb c1                   jmp    401114 <phase_6+0x20>      // 跳转到401114，发现这是个双重循环
+
+-------------------------part two ------------------------------
+  401153:   48 8d 74 24 18          lea    0x18(%rsp),%rsi            // %rsi = %rsp + 24 
+  401158:   4c 89 f0                mov    %r14,%rax                  // %rax = %r14 
+  40115b:   b9 07 00 00 00          mov    $0x7,%ecx                  // %ecx = 7       
+  
+  401160:   89 ca                   mov    %ecx,%edx                  // %edx = %ecx 
+  401162:   2b 10                   sub    (%rax),%edx                // %edx = %edx - (%rax)
+  401164:   89 10                   mov    %edx,(%rax)                // (%rax) = %edx 
+  401166:   48 83 c0 04             add    $0x4,%rax                  // %rax = %rax + 4 指向下一个数
+  40116a:   48 39 f0                cmp    %rsi,%rax                  // 直到最后一个数
+  40116d:   75 f1                   jne    401160 <phase_6+0x6c>      // 未到最后一个数，继续循环，跳转到401160 
+
+
+-------------------------part three------------------------------
+  40116f:   be 00 00 00 00          mov    $0x0,%esi                  // %esi = 0     
+  401174:   eb 21                   jmp    401197 <phase_6+0xa3>      // 跳赚到 401197 
+  
+  401176:   48 8b 52 08             mov    0x8(%rdx),%rdx             // %rdx = (%rbx+8)
+  40117a:   83 c0 01                add    $0x1,%eax                  // %eax = %eax + 1 
+  40117d:   39 c8                   cmp    %ecx,%eax                  // 比较 %eax, %ecx，  %eax是计数器 %ecx是数组元素  
+  40117f:   75 f5                   jne    401176 <phase_6+0x82>      // 不等 跳转到 401176 
+  401181:   eb 05                   jmp    401188 <phase_6+0x94>      // 相等 跳转到 401188
+  
+  401183:   ba d0 32 60 00          mov    $0x6032d0,%edx             // %edx = 0x6032d0 这是一个地址
+  
+  401188:   48 89 54 74 20          mov    %rdx,0x20(%rsp,%rsi,2)     // ( %rsp + 2*%rsi + 32 ) = %rdx 
+  40118d:   48 83 c6 04             add    $0x4,%rsi                  // %rsi = rsi + 4 
+  401191:   48 83 fe 18             cmp    $0x18,%rsi 。              // %rsi 与24 比较，说明这是一个遍历 
+  401195:   74 14                   je     4011ab <phase_6+0xb7>      // 相等就跳出循环 
+  
+  401197:   8b 0c 34                mov    (%rsp,%rsi,1),%ecx         // %ecx = (%rsp + %rsi) 发现 %rsp 是索引
+  40119a:   83 f9 01                cmp    $0x1,%ecx                  // 比较这个数组元素 与 1 
+  40119d:   7e e4                   jle    401183 <phase_6+0x8f>      // 数组元素小于等于1就跳转到401183
+  40119f:   b8 01 00 00 00          mov    $0x1,%eax                  // %eax = 1 
+  4011a4:   ba d0 32 60 00          mov    $0x6032d0,%edx             // %edx = 0x6032d0 这是一个地址 
+  4011a9:   eb cb                   jmp    401176 <phase_6+0x82>      // 跳转到401176 
+
+
+-------------------------part four-------------------------------- 
+
+  4011ab:   48 8b 5c 24 20          mov    0x20(%rsp),%rbx             // %rbx = (%rsp+32) 首地址
+  4011b0:   48 8d 44 24 28          lea    0x28(%rsp),%rax             // %rax = (%rsp+40)
+  4011b5:   48 8d 74 24 50          lea    0x50(%rsp),%rsi             // %rsi = (%rsp+80) 尾地址
+  4011ba:   48 89 d9                mov    %rbx,%rcx                   // %rcx = %rbx 
+  
+  4011bd:   48 8b 10                mov    (%rax),%rdx                 // %rdx = (%rax)   
+  4011c0:   48 89 51 08             mov    %rdx,0x8(%rcx)              // (%rcx+8) = %rdx
+  4011c4:   48 83 c0 08             add    $0x8,%rax                   // %rax = %rax + 8 
+  4011c8:   48 39 f0                cmp    %rsi,%rax                   // 比较 %rax, %rsi 说明这是一个遍历          
+  4011cb:   74 05                   je     4011d2 <phase_6+0xde>       // 相等，遍历结束
+  4011cd:   48 89 d1                mov    %rdx,%rcx                   // %rcx = %rdx 
+  4011d0:   eb eb                   jmp    4011bd <phase_6+0xc9>       // 跳转到4011bd  
+
+
+-------------------------part five-----------------------------
+  4011d2:   48 c7 42 08 00 00 00    movq   $0x0,0x8(%rdx)              // 设置最后一个节点的next为null
+  4011d9:   00 
+  4011da:   bd 05 00 00 00          mov    $0x5,%ebp                   // %ebp = 0 
+  
+  4011df:   48 8b 43 08             mov    0x8(%rbx),%rax              // %rax = (%rbx+8) ( %rax = %rbx->next)  
+  4011e3:   8b 00                   mov    (%rax),%eax                 // %eax = (%rax)
+  4011e5:   39 03                   cmp    %eax,(%rbx)                 // 比较 (%rbx) 与 %eax ( 分别是链表中前后两个节点的值)
+  4011e7:   7d 05                   jge    4011ee <phase_6+0xfa>       // 低于等于就爆炸，说明链表中的值降序的
+  4011e9:   e8 4c 02 00 00          callq  40143a <explode_bomb>
+  4011ee:   48 8b 5b 08             mov    0x8(%rbx),%rbx              // %rbx = (%rbx+8)  %rbx = %rbx->next 
+  4011f2:   83 ed 01                sub    $0x1,%ebp                   // %ebp = %ebp - 1 计数器
+  4011f5:   75 e8                   jne    4011df <phase_6+0xeb>
+
+  4011f7:   48 83 c4 50             add    $0x50,%rsp
+  4011fb:   5b                      pop    %rbx
+  4011fc:   5d                      pop    %rbp
+  4011fd:   41 5c                   pop    %r12
+  4011ff:   41 5d                   pop    %r13
+  401201:   41 5e                   pop    %r14
+  401203:   c3                      retq
+
+
+```
+
+
+```c
+void phase_6(){
+    // part one 
+
+    int nums[6];
+    read_six_numbers(nums);
+    int i = 0, j;
+one_first:
+    if ( nums[i] > 6 ) 
+        explode_bomb();
+    if ( i == 6 ) 
+        goto part_2;
+    j = i + 1; 
+one_second:
+    if ( nums[i] == nums[j] )
+        explode_bomb();
+    if ( j <= 5 ) 
+        goto one_second;
+    j++ ;
+    goto one_first;
+
+    // part two 
+part_2: 
+    int *t = &nums[5];
+    int *s = &nums[0];
+two_first:
+    *s = 7 - *s;
+    s++;
+    if ( s != t )
+        goto two_first; 
+    else:
+        goto part_3
+    
+
+    // part three
+part_3:
+    sturct node *address[6];
+    int *n = &nums[0];
+    struct node *p;
+    while ( n <= &num[5] ){
+        if ( *n <= 1 ){
+            p = 0x6032d0;   // 这是一个链表的首地址。 
+            address[0] = p; 
+        }
+        else{
+            int t = 1;
+            while ( t < *n ){
+                p = p->next;
+                t++; 
+            }
+            address[*n-1] = p;
+        }
+        n++; 
+    }
+    goto part_4;
+    
+    // part four
+part_4:
+    struct node *ad = address[0];
+    struct node *se = address[1];
+    while ( se != adddress[5] ){
+        ad->next = se;               //  重新链接链表
+        ad = ad->next; 
+        se++;                       
+    }
+    goto part_5;
+
+psrt_5: 
+    struct node *ad = &node1;
+    struct node *se;
+    int t = 0;
+    while ( t != 5 ){
+        se = ad->next;
+        if ( ad->value <= se->value ) 
+            explode_bomb();
+        ad = ad->next;
+        t++; 
+    } 
+}
+```
+
+看 `part three`, 查看 `0x6032d0` :
+
+![](https://upload-images.jianshu.io/upload_images/4440914-3713c00ddf09dea3.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/700)
+
+发现是6个结构体，结构体的得结构如下(两个整型，一个指针)：
+
+（最后一列的全是0，猜想它应该只是为了对齐，所以结构体里面没有这个元素，看相邻两个结构体的地址之差知道每个结构体的大小是16b，但是实际只用到12b）
+
+```c
+struct node{
+    int value;
+    int no; 
+    struct *node next;
+}
+```
+
+ 所以`401176`行得意思是： `struct *p = p->next;` 指向当前节点的下一个节点，这段代码的意思是根据`nums`数组中的值，将`node`节点的地址存到`%rsp+32`的开始一段内存中，例如 nums 中是 1,2,3,4,5,6 则`%rsp+32`的开始一段内存分别存入 `&node1`， `&node2`，`&node3`，`&node4`，`&node5`，`&node6`。
+
+ 第四部分是根据之前存入`address`的地址，重新连接链表。
+
+ 第五部分是遍历链表，保证链表的node的value是降序的：`node3(924)->node4(691)->node5(477)->node6(443)->node1(332)->node2(168)`，二链表是根据输入的6个数字重新连接的，所以，答案是`4 3 2 1 6 5`。
+
+
+## secret_phase
+
