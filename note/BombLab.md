@@ -535,7 +535,7 @@ part_4:
     }
     goto part_5;
 
-psrt_5: 
+part_5: 
     struct node *ad = &node1;
     struct node *se;
     int t = 0;
@@ -574,7 +574,7 @@ struct node{
 
 第四部分是根据之前存入`address`的地址，重新连接链表。
 
-第五部分是遍历链表，保证链表的node的value是降序的：`node3(924)->node4(691)->node5(477)->node6(443)->node1(332)->node2(168)`，二链表是根据输入的6个数字重新连接的，所以，答案是`4 3 2 1 6 5`。
+第五部分是遍历链表，保证链表的node的value是降序的：`node3(924)->node4(691)->node5(477)->node6(443)->node1(332)->node2(168)`，而链表是根据输入的6个数字重新连接的，所以，答案是`4 3 2 1 6 5`。
 
 然后6个炸弹就全部拆完了！ 
 
