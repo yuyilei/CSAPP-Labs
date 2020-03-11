@@ -1,12 +1,12 @@
 # Bomb Lab 
 
-本实验我们了解了C语言提供的抽象层下面的东西，通过阅读编译器生成的汇编代码，了解了编译器和它的优化能力，以及机器、数据类型和指令集。
+本实验我们了解了C语言提供的抽象层下面的东西，通过阅读编译器生成的汇编代码，了解了编译器和它的优化能力，以及机器、数据类型和指令集。a
 
 Bomb Lab有6个炸弹（其实是7个）。
 
 下载代码后，使用反编译器执行 objdump -d bomb > bomb.txt获取bomb程序反汇编的全部内容。
 
-查看`main`函数，发现调用了 phase_1, phase_2, phase_3, phase_4, phase_5, phase_6和 secret_phase。
+查看`main`函数，发现调用了 phase_1, phase_2, phase_3, phase_4, phase_5, phase_6。
 
 用gdb 启动 bomb，并设置相应断点（比如查看phase_1时,要在phase_1,phase_2处设置断点）
 
@@ -577,6 +577,3 @@ struct node{
 第五部分是遍历链表，保证链表的node的value是降序的：`node3(924)->node4(691)->node5(477)->node6(443)->node1(332)->node2(168)`，而链表是根据输入的6个数字重新连接的，所以，答案是`4 3 2 1 6 5`。
 
 然后6个炸弹就全部拆完了！ 
-
-## secret_phase
-
